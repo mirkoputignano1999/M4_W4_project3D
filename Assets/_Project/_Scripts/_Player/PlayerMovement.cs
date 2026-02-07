@@ -13,6 +13,12 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] private float jumpHeight = 1.5f;
     [SerializeField] private LayerMask groundLayer;
 
+    [Header("Health / Fall")]
+    [SerializeField] private Health health;
+    [Tooltip("Y sotto la quale il player viene considerato caduto")]
+    [SerializeField] private float fallDeathY = -10f;
+    [SerializeField] private Transform respawnPoint;
+
     private Rigidbody rb;
     private Vector3 moveInput;
 
@@ -30,10 +36,13 @@ public class PlayerMovement : MonoBehaviour
         rb.interpolation = RigidbodyInterpolation.Interpolate;
         rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
 
-        // Disabilita Root Motion se l'Animator è presente (evita conflitti di rotazione/movimento)
+        // Disabilita Root Motion se l'Animator è presente
         var animator = GetComponentInChildren<Animator>();
         if (animator != null)
             animator.applyRootMotion = false;
+
+        if (health == null)
+            health = GetComponent<Health>();
     }
 
     void Update()
@@ -43,24 +52,20 @@ public class PlayerMovement : MonoBehaviour
         float v = Input.GetAxisRaw("Vertical");
 
         Vector3 input = new Vector3(h, 0f, v);
-        if (input.sqrMagnitude > 1f)
-            input.Normalize();
+        if (input.sqrMagnitude > 1f) input.Normalize();
 
         // Movimento relativo alla camera
         Transform cam = Camera.main ? Camera.main.transform : null;
-
         if (cam != null)
         {
             Vector3 camForward = cam.forward;
             camForward.y = 0f;
-            if (camForward.sqrMagnitude < 0.0001f)
-                camForward = Vector3.forward;
+            if (camForward.sqrMagnitude < 0.0001f) camForward = Vector3.forward;
             camForward.Normalize();
 
             Vector3 camRight = cam.right;
             camRight.y = 0f;
-            if (camRight.sqrMagnitude < 0.0001f)
-                camRight = Vector3.right;
+            if (camRight.sqrMagnitude < 0.0001f) camRight = Vector3.right;
             camRight.Normalize();
 
             moveInput = camForward * input.z + camRight * input.x;
@@ -78,6 +83,14 @@ public class PlayerMovement : MonoBehaviour
                 Mathf.Sqrt(jumpHeight * -2f * Physics.gravity.y),
                 rb.velocity.z
             );
+        }
+
+        // FALL CHECK (solo in Update per reattività)
+        if (transform.position.y < fallDeathY && health != null)
+        {
+            // assegna 1 danno per caduta, respawna
+            health.TakeDamage(1);
+            Respawn();
         }
     }
 
@@ -99,27 +112,33 @@ public class PlayerMovement : MonoBehaviour
             Vector3 lookDir = horizontalVel.normalized; // usa la direzione della velocità reale
             Quaternion targetRot = Quaternion.LookRotation(lookDir, Vector3.up);
 
-            // Limita la velocità angolare per evitare spin improvvisi
             float maxDegThisFrame = rotationSpeed * 100f * Time.fixedDeltaTime;
             Quaternion newRot = Quaternion.RotateTowards(rb.rotation, targetRot, maxDegThisFrame);
             rb.MoveRotation(newRot);
 
-            // Azzeriamo eventuale angular velocity residua (previene rotazioni incontrollate)
             rb.angularVelocity = Vector3.zero;
         }
-        // se horizontalSpeed <= rotationThreshold non cambiare rotazione: evita rotazioni quando si è bloccati contro un muro
         else
         {
-            // assicurati che non ci sia velocità angolare residua
             rb.angularVelocity = Vector3.zero;
         }
 
-        // Aggiorna animator con la velocità reale (fa sempre qui per coerenza fisica)
+        // Aggiorna animator con la velocità reale
         if (anim != null)
         {
             anim.SetSpeed(horizontalSpeed / Mathf.Max(0.0001f, speed));
             anim.SetIsJumping(!isGrounded);
         }
+    }
+
+    private void Respawn()
+    {
+        if (respawnPoint != null)
+            transform.position = respawnPoint.position;
+        else
+            transform.position = Vector3.up * 2f; // default
+
+        rb.velocity = Vector3.zero;
     }
 
     // GROUND CHECK ROBUSTO
