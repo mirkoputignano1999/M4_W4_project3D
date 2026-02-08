@@ -17,6 +17,7 @@ public class Coin : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
+        //Controlla se il collider è del player
         if (!other.CompareTag("Player")) return;
 
         GameManager gm = FindObjectOfType<GameManager>();

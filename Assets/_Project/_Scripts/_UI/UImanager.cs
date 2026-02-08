@@ -13,9 +13,9 @@ public class UIManager : MonoBehaviour
     {
         if (gameManager == null) return;
 
-        coinsText.text = "Coins: " + gameManager.CoinsLeft;
+        coinsText.text = "Coins left: " + gameManager.CoinsLeft;
 
         float t = Mathf.Max(0f, gameManager.TimeLeft);
-        timeText.text = "Time: " + t.ToString("0");
+        timeText.text = "Time left: " + t.ToString("0");
     }
 }
